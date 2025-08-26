@@ -35,12 +35,69 @@ const dataURLtoFile = (dataurl: string, filename: string): File => {
 
 type Tab = 'retouch' | 'adjust' | 'filters' | 'crop' | 'upscale';
 
+// Structured error type for user-friendly display
+type FormattedError = {
+  title: string;
+  message: string;
+};
+
+// Parses different kinds of errors into a user-friendly format.
+const parseAndFormatError = (err: unknown): FormattedError => {
+    let message = 'An unknown error occurred. Please check the console for details.';
+    if (err instanceof Error) {
+        message = err.message;
+    } else if (typeof err === 'string') {
+        message = err;
+    }
+
+    // Check for Quota/Rate Limit errors from the Gemini API
+    if (message.includes('429') || message.includes('RESOURCE_EXHAUSTED') || message.includes('quota')) {
+        let userMessage = `You've exceeded the request limit.`;
+        
+        const retryMatch = message.match(/"retryDelay":\s*"(\d+)s"/);
+        if (retryMatch && retryMatch[1]) {
+            userMessage += ` Please try again in ${retryMatch[1]} seconds.`;
+        } else {
+             userMessage += ` Please try again later or check your API plan and billing details.`;
+        }
+
+        return {
+            title: 'API Rate Limit Exceeded',
+            message: userMessage
+        };
+    }
+
+    // Check for blocked prompts (from our custom service logic)
+    if (message.includes('Request was blocked')) {
+        return {
+            title: 'Request Blocked',
+            message: 'Your prompt was blocked due to safety settings. Please modify your prompt and try again.'
+        };
+    }
+    
+    // Check for "no image" response (from our custom service logic)
+    if (message.includes('The AI model did not return an image')) {
+         return {
+            title: 'No Image Generated',
+            message: message // Use the detailed message from the service
+        };
+    }
+
+    // Generic fallback for other errors
+    return {
+        title: 'An Error Occurred',
+        // Show only the first line of a potentially long error message for clarity
+        message: message.split('\n')[0],
+    };
+};
+
+
 const App: React.FC = () => {
   const [history, setHistory] = useState<File[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [prompt, setPrompt] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormattedError | null>(null);
   const [editHotspot, setEditHotspot] = useState<{ x: number, y: number } | null>(null);
   const [displayHotspot, setDisplayHotspot] = useState<{ x: number, y: number } | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('retouch');
@@ -106,17 +163,17 @@ const App: React.FC = () => {
 
   const handleGenerate = useCallback(async () => {
     if (!currentImage) {
-      setError('No image loaded to edit.');
+      setError({ title: 'Input Error', message: 'No image loaded to edit.' });
       return;
     }
     
     if (!prompt.trim()) {
-        setError('Please enter a description for your edit.');
+        setError({ title: 'Input Error', message: 'Please enter a description for your edit.' });
         return;
     }
 
     if (!editHotspot) {
-        setError('Please click on the image to select an area to edit.');
+        setError({ title: 'Input Error', message: 'Please click on the image to select an area to edit.' });
         return;
     }
 
@@ -130,8 +187,7 @@ const App: React.FC = () => {
         setEditHotspot(null);
         setDisplayHotspot(null);
     } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-        setError(`Failed to generate the image. ${errorMessage}`);
+        setError(parseAndFormatError(err));
         console.error(err);
     } finally {
         setIsLoading(false);
@@ -140,7 +196,7 @@ const App: React.FC = () => {
   
   const handleApplyFilter = useCallback(async (filterPrompt: string) => {
     if (!currentImage) {
-      setError('No image loaded to apply a filter to.');
+      setError({ title: 'Input Error', message: 'No image loaded to apply a filter to.' });
       return;
     }
     
@@ -152,8 +208,7 @@ const App: React.FC = () => {
         const newImageFile = dataURLtoFile(filteredImageUrl, `filtered-${Date.now()}.png`);
         addImageToHistory(newImageFile);
     } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-        setError(`Failed to apply the filter. ${errorMessage}`);
+        setError(parseAndFormatError(err));
         console.error(err);
     } finally {
         setIsLoading(false);
@@ -162,7 +217,7 @@ const App: React.FC = () => {
   
   const handleApplyAdjustment = useCallback(async (adjustmentPrompt: string) => {
     if (!currentImage) {
-      setError('No image loaded to apply an adjustment to.');
+      setError({ title: 'Input Error', message: 'No image loaded to apply an adjustment to.' });
       return;
     }
     
@@ -174,8 +229,7 @@ const App: React.FC = () => {
         const newImageFile = dataURLtoFile(adjustedImageUrl, `adjusted-${Date.now()}.png`);
         addImageToHistory(newImageFile);
     } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-        setError(`Failed to apply the adjustment. ${errorMessage}`);
+        setError(parseAndFormatError(err));
         console.error(err);
     } finally {
         setIsLoading(false);
@@ -184,7 +238,7 @@ const App: React.FC = () => {
 
   const handleApplyUpscale = useCallback(async () => {
     if (!currentImage) {
-      setError('No image loaded to upscale.');
+      setError({ title: 'Input Error', message: 'No image loaded to upscale.' });
       return;
     }
     
@@ -196,8 +250,7 @@ const App: React.FC = () => {
         const newImageFile = dataURLtoFile(upscaledImageUrl, `upscaled-${Date.now()}.png`);
         addImageToHistory(newImageFile);
     } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-        setError(`Failed to upscale the image. ${errorMessage}`);
+        setError(parseAndFormatError(err));
         console.error(err);
     } finally {
         setIsLoading(false);
@@ -206,7 +259,7 @@ const App: React.FC = () => {
 
   const handleApplyCrop = useCallback(() => {
     if (!completedCrop || !imgRef.current) {
-        setError('Please select an area to crop.');
+        setError({ title: 'Input Error', message: 'Please select an area to crop.' });
         return;
     }
 
@@ -220,7 +273,7 @@ const App: React.FC = () => {
     const ctx = canvas.getContext('2d');
 
     if (!ctx) {
-        setError('Could not process the crop.');
+        setError({ title: 'Crop Error', message: 'Could not process the crop.' });
         return;
     }
 
@@ -325,11 +378,11 @@ const App: React.FC = () => {
     if (error) {
        return (
            <div className="text-center animate-fade-in bg-red-500/10 border border-red-500/20 p-8 rounded-lg max-w-2xl mx-auto flex flex-col items-center gap-4">
-            <h2 className="text-2xl font-bold text-red-300">An Error Occurred</h2>
-            <p className="text-md text-red-400">{error}</p>
+            <h2 className="text-2xl font-bold text-red-300">{error.title}</h2>
+            <p className="text-md text-red-400 whitespace-pre-wrap">{error.message}</p>
             <button
                 onClick={() => setError(null)}
-                className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg text-md transition-colors"
+                className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg text-md transition-colors mt-2"
               >
                 Try Again
             </button>
