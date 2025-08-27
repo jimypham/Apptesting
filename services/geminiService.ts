@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, Modality, GenerateContentParameters } from "@google/genai";
 
 // Helper function to convert a File object to a Gemini API Part
 const fileToPart = async (file: File): Promise<{ inlineData: { mimeType: string; data: string; } }> => {
@@ -63,19 +63,34 @@ const handleApiResponse = (
     throw new Error(errorMessage);
 };
 
+const createGenerateContentParams = (model: string, parts: any[]): GenerateContentParameters => {
+    const params: GenerateContentParameters = {
+        model,
+        contents: { parts },
+    };
+    if (model === 'gemini-2.5-flash-image-preview') {
+        params.config = {
+            responseModalities: [Modality.IMAGE, Modality.TEXT],
+        };
+    }
+    return params;
+};
+
 /**
  * Generates an edited image using generative AI based on a text prompt and a specific point.
  * @param originalImage The original image file.
  * @param userPrompt The text prompt describing the desired edit.
  * @param hotspot The {x, y} coordinates on the image to focus the edit.
+ * @param model The AI model to use for the generation.
  * @returns A promise that resolves to the data URL of the edited image.
  */
 export const generateEditedImage = async (
     originalImage: File,
     userPrompt: string,
-    hotspot: { x: number, y: number }
+    hotspot: { x: number, y: number },
+    model: string,
 ): Promise<string> => {
-    console.log('Starting generative edit at:', hotspot);
+    console.log(`Starting generative edit at: ${hotspot} using model: ${model}`);
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
     const originalImagePart = await fileToPart(originalImage);
@@ -95,10 +110,8 @@ Output: Return ONLY the final edited image. Do not return text.`;
     const textPart = { text: prompt };
 
     console.log('Sending image and prompt to the model...');
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image-preview',
-        contents: { parts: [originalImagePart, textPart] },
-    });
+    const params = createGenerateContentParams(model, [originalImagePart, textPart]);
+    const response: GenerateContentResponse = await ai.models.generateContent(params);
     console.log('Received response from model.', response);
 
     return handleApiResponse(response, 'edit');
@@ -108,13 +121,15 @@ Output: Return ONLY the final edited image. Do not return text.`;
  * Generates an image with a filter applied using generative AI.
  * @param originalImage The original image file.
  * @param filterPrompt The text prompt describing the desired filter.
+ * @param model The AI model to use for the generation.
  * @returns A promise that resolves to the data URL of the filtered image.
  */
 export const generateFilteredImage = async (
     originalImage: File,
     filterPrompt: string,
+    model: string,
 ): Promise<string> => {
-    console.log(`Starting filter generation: ${filterPrompt}`);
+    console.log(`Starting filter generation: ${filterPrompt} using model: ${model}`);
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
     const originalImagePart = await fileToPart(originalImage);
@@ -129,10 +144,8 @@ Output: Return ONLY the final filtered image. Do not return text.`;
     const textPart = { text: prompt };
 
     console.log('Sending image and filter prompt to the model...');
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image-preview',
-        contents: { parts: [originalImagePart, textPart] },
-    });
+    const params = createGenerateContentParams(model, [originalImagePart, textPart]);
+    const response: GenerateContentResponse = await ai.models.generateContent(params);
     console.log('Received response from model for filter.', response);
     
     return handleApiResponse(response, 'filter');
@@ -142,13 +155,15 @@ Output: Return ONLY the final filtered image. Do not return text.`;
  * Generates an image with a global adjustment applied using generative AI.
  * @param originalImage The original image file.
  * @param adjustmentPrompt The text prompt describing the desired adjustment.
+ * @param model The AI model to use for the generation.
  * @returns A promise that resolves to the data URL of the adjusted image.
  */
 export const generateAdjustedImage = async (
     originalImage: File,
     adjustmentPrompt: string,
+    model: string,
 ): Promise<string> => {
-    console.log(`Starting global adjustment generation: ${adjustmentPrompt}`);
+    console.log(`Starting global adjustment generation: ${adjustmentPrompt} using model: ${model}`);
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
     const originalImagePart = await fileToPart(originalImage);
@@ -167,10 +182,8 @@ Output: Return ONLY the final adjusted image. Do not return text.`;
     const textPart = { text: prompt };
 
     console.log('Sending image and adjustment prompt to the model...');
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image-preview',
-        contents: { parts: [originalImagePart, textPart] },
-    });
+    const params = createGenerateContentParams(model, [originalImagePart, textPart]);
+    const response: GenerateContentResponse = await ai.models.generateContent(params);
     console.log('Received response from model for adjustment.', response);
     
     return handleApiResponse(response, 'adjustment');
@@ -179,12 +192,14 @@ Output: Return ONLY the final adjusted image. Do not return text.`;
 /**
  * Generates an upscaled version of an image.
  * @param originalImage The original image file.
+ * @param model The AI model to use for the generation.
  * @returns A promise that resolves to the data URL of the upscaled image.
  */
 export const generateUpscaledImage = async (
     originalImage: File,
+    model: string,
 ): Promise<string> => {
-    console.log(`Starting upscale generation.`);
+    console.log(`Starting upscale generation using model: ${model}`);
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
     const originalImagePart = await fileToPart(originalImage);
@@ -194,10 +209,8 @@ Output: Return ONLY the final upscaled image. Do not output any text.`;
     const textPart = { text: prompt };
 
     console.log('Sending image and upscale prompt to the model...');
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image-preview',
-        contents: { parts: [originalImagePart, textPart] },
-    });
+    const params = createGenerateContentParams(model, [originalImagePart, textPart]);
+    const response: GenerateContentResponse = await ai.models.generateContent(params);
     console.log('Received response from model for upscale.', response);
     
     return handleApiResponse(response, 'upscale');

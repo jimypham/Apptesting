@@ -10,14 +10,40 @@ const SparkleIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-const Header: React.FC = () => {
+interface HeaderProps {
+    model: string;
+    setModel: (model: 'gemini-2.5-flash-image-preview' | 'gemini-2.5-flash') => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ model, setModel }) => {
   return (
     <header className="w-full py-4 px-8 border-b border-gray-700 bg-gray-800/30 backdrop-blur-sm sticky top-0 z-50">
-      <div className="flex items-center justify-center gap-3">
-          <SparkleIcon className="w-6 h-6 text-blue-400" />
-          <h1 className="text-xl font-bold tracking-tight text-gray-100">
-            Pixshop
-          </h1>
+      <div className="flex items-center justify-between max-w-[1600px] mx-auto">
+          <div className="flex items-center gap-3">
+            <SparkleIcon className="w-6 h-6 text-blue-400" />
+            <h1 className="text-xl font-bold tracking-tight text-gray-100">
+                Pixshop
+            </h1>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <label htmlFor="model-select" className="text-sm font-medium text-gray-400 hidden sm:block">AI Model:</label>
+            <div className="relative">
+                <select
+                    id="model-select"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value as any)}
+                    className="bg-gray-700/80 border border-gray-600 text-gray-200 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-10 py-2 appearance-none transition"
+                    aria-label="Select AI Model"
+                >
+                    <option value="gemini-2.5-flash-image-preview">Quality</option>
+                    <option value="gemini-2.5-flash">Balanced</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                </div>
+            </div>
+          </div>
       </div>
     </header>
   );

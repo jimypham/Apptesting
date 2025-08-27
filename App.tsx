@@ -34,6 +34,8 @@ const dataURLtoFile = (dataurl: string, filename: string): File => {
 }
 
 type Tab = 'retouch' | 'adjust' | 'filters' | 'crop' | 'upscale';
+type Model = 'gemini-2.5-flash-image-preview' | 'gemini-2.5-flash';
+
 
 // Structured error type for user-friendly display
 type FormattedError = {
@@ -101,7 +103,8 @@ const App: React.FC = () => {
   const [editHotspot, setEditHotspot] = useState<{ x: number, y: number } | null>(null);
   const [displayHotspot, setDisplayHotspot] = useState<{ x: number, y: number } | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('retouch');
-  
+  const [model, setModel] = useState<Model>('gemini-2.5-flash-image-preview');
+
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const [aspect, setAspect] = useState<number | undefined>();
@@ -181,7 +184,7 @@ const App: React.FC = () => {
     setError(null);
     
     try {
-        const editedImageUrl = await generateEditedImage(currentImage, prompt, editHotspot);
+        const editedImageUrl = await generateEditedImage(currentImage, prompt, editHotspot, model);
         const newImageFile = dataURLtoFile(editedImageUrl, `edited-${Date.now()}.png`);
         addImageToHistory(newImageFile);
         setEditHotspot(null);
@@ -192,7 +195,7 @@ const App: React.FC = () => {
     } finally {
         setIsLoading(false);
     }
-  }, [currentImage, prompt, editHotspot, addImageToHistory]);
+  }, [currentImage, prompt, editHotspot, addImageToHistory, model]);
   
   const handleApplyFilter = useCallback(async (filterPrompt: string) => {
     if (!currentImage) {
@@ -204,7 +207,7 @@ const App: React.FC = () => {
     setError(null);
     
     try {
-        const filteredImageUrl = await generateFilteredImage(currentImage, filterPrompt);
+        const filteredImageUrl = await generateFilteredImage(currentImage, filterPrompt, model);
         const newImageFile = dataURLtoFile(filteredImageUrl, `filtered-${Date.now()}.png`);
         addImageToHistory(newImageFile);
     } catch (err) {
@@ -213,7 +216,7 @@ const App: React.FC = () => {
     } finally {
         setIsLoading(false);
     }
-  }, [currentImage, addImageToHistory]);
+  }, [currentImage, addImageToHistory, model]);
   
   const handleApplyAdjustment = useCallback(async (adjustmentPrompt: string) => {
     if (!currentImage) {
@@ -225,7 +228,7 @@ const App: React.FC = () => {
     setError(null);
     
     try {
-        const adjustedImageUrl = await generateAdjustedImage(currentImage, adjustmentPrompt);
+        const adjustedImageUrl = await generateAdjustedImage(currentImage, adjustmentPrompt, model);
         const newImageFile = dataURLtoFile(adjustedImageUrl, `adjusted-${Date.now()}.png`);
         addImageToHistory(newImageFile);
     } catch (err) {
@@ -234,7 +237,7 @@ const App: React.FC = () => {
     } finally {
         setIsLoading(false);
     }
-  }, [currentImage, addImageToHistory]);
+  }, [currentImage, addImageToHistory, model]);
 
   const handleApplyUpscale = useCallback(async () => {
     if (!currentImage) {
@@ -246,7 +249,7 @@ const App: React.FC = () => {
     setError(null);
     
     try {
-        const upscaledImageUrl = await generateUpscaledImage(currentImage);
+        const upscaledImageUrl = await generateUpscaledImage(currentImage, model);
         const newImageFile = dataURLtoFile(upscaledImageUrl, `upscaled-${Date.now()}.png`);
         addImageToHistory(newImageFile);
     } catch (err) {
@@ -255,7 +258,7 @@ const App: React.FC = () => {
     } finally {
         setIsLoading(false);
     }
-  }, [currentImage, addImageToHistory]);
+  }, [currentImage, addImageToHistory, model]);
 
   const handleApplyCrop = useCallback(() => {
     if (!completedCrop || !imgRef.current) {
@@ -572,7 +575,7 @@ const App: React.FC = () => {
   
   return (
     <div className="min-h-screen text-gray-100 flex flex-col">
-      <Header />
+      <Header model={model} setModel={setModel} />
       <main className={`flex-grow w-full max-w-[1600px] mx-auto p-4 md:p-8 flex justify-center ${currentImage ? 'items-start' : 'items-center'}`}>
         {renderContent()}
       </main>
